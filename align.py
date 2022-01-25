@@ -116,6 +116,7 @@ def pyramid(img1, img2):
 
     window = [-50, 50]
     displacement = [0, 0]
+    displacement_final = [0, 0]
     while len(img1_list) != 0:
         # get next children images
         img1 = img1_list[-1]
@@ -124,24 +125,33 @@ def pyramid(img1, img2):
         a_img1 = np.roll(img1, [2*i for i in displacement], axis=(0, 1))
         # search
         a_img_final, displacement = exhaustively_search(a_img1, img2, window=window)
+        displacement_final[0] += 2*displacement[0]
+        displacement_final[1] += 2*displacement[1]
         window = [int(i/2) for i in window]
 
         img1_list.pop()
         img2_list.pop()
     # final shift
-    a_img_final, displacement = exhaustively_search(a_img_final, img2, window=window)
-    return a_img_final, window
+    a_img_final, _ = exhaustively_search(a_img_final, img2, window=window)
+    return a_img_final, displacement_final
 
 
-def main(score="ncc"):
-    for root, dirs, files in os.walk("data", topdown=True):
+def main(score="ncc", large=False):
+    if large:
+        path = "data_large"
+    else:
+        path = "data_small"
+    for root, dirs, files in os.walk(path, topdown=True):
         test_file = ["00125v.jpg", "service-pnp-prok-01800-01886r.jpg",  "01047u.jpg"]
-        test_file = ["01047u.jpg"]
+        test_file = ["00125v.jpg"]
         test_file = files
         for f in test_file:
 
             img_name = f
-            im = Image.open("data/" + img_name)
+            if large:
+                im = Image.open("data_large/" + img_name)
+            else:
+                im = Image.open("data_small/" + img_name)
             im = np.asarray(im)
 
             # directly chop im
@@ -156,37 +166,37 @@ def main(score="ncc"):
 
             b, g, r = border_trim(b, g, r)
 
-            b = Image.fromarray(b)
-            g = Image.fromarray(g)
-            r = Image.fromarray(r)
+            if large:
+                b = Image.fromarray(b)
+                g = Image.fromarray(g)
+                r = Image.fromarray(r)
 
-            b1 = b.filter(ImageFilter.FIND_EDGES)
-            g1 = g.filter(ImageFilter.FIND_EDGES)
-            r1 = r.filter(ImageFilter.FIND_EDGES)
+                b1 = b.filter(ImageFilter.FIND_EDGES)
+                g1 = g.filter(ImageFilter.FIND_EDGES)
+                r1 = r.filter(ImageFilter.FIND_EDGES)
 
-            b1 = np.array(b1)
-            g1 = np.array(g1)
-            r1 = np.array(r1)
-            # b.save("b1.jpg")
-            # g.save("g1.jpg")
-            # r.save("r1.jpg")
-            # skio.imsave("b1.jpg", b)
-            # skio.imsave("g1.jpg", g)
-            # skio.imsave("r1.jpg", r)
+                b1 = np.array(b1)
+                g1 = np.array(g1)
+                r1 = np.array(r1)
 
             # naive search
             #ar, _ = exhaustively_search(r, b, score=score, c="r")
             #ag, _ = exhaustively_search(g, b, score=score, c="g")
 
             # pyramid search - edge
-            _, displacement_r = pyramid(r1, b1)
-            print(displacement_r)
-            _, displacement_g, = pyramid(g1, b1)
-            print(displacement_g)
-            #
+                _, displacement_r = pyramid(r1, b1)
+                print(displacement_r)
+                _, displacement_g, = pyramid(g1, b1)
+                print(displacement_g)
+            else:
+                _, displacement_r = pyramid(r, b)
+                print(displacement_r)
+                _, displacement_g, = pyramid(g, b)
+                print(displacement_g)
+
             ar = np.roll(r, displacement_r, axis=(0, 1))
             ag = np.roll(g, displacement_g, axis=(0, 1))
-            im_out = np.dstack([ar, g, b])
+            im_out = np.dstack([ar, ag, b])
             #
             colour_img = Image.fromarray(im_out)
             colour_img.save("output_3_edge/"+img_name)
